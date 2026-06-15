@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { X } from 'lucide-react'
 
 const EMPTY = {
   company_name: '', contact_person: '', mobile: '', email: '',
@@ -19,51 +18,63 @@ export default function LeadForm({ initial = {}, exhibitionId, onSave, onCancel,
     onSave({ ...form, exhibition_id: exhibitionId })
   }
 
-  function Field({ label, name, type = 'text', placeholder }) {
-    return (
-      <div className="form-group">
-        <label className="form-label">{label}</label>
-        <input
-          className="form-input"
-          type={type}
-          placeholder={placeholder || label}
-          value={form[name] || ''}
-          onChange={e => set(name, e.target.value)}
-        />
-      </div>
-    )
-  }
-
   return (
     <form onSubmit={handleSubmit}>
       <div className="stack">
-
-        {/* OCR-populated fields */}
         <div style={{ background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', padding: '14px' }}>
           <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             From Card
           </p>
           <div className="stack">
             <div className="grid-2">
-              <Field label="Company Name" name="company_name" />
-              <Field label="Contact Person" name="contact_person" />
+              <div className="form-group">
+                <label className="form-label">Company Name</label>
+                <input className="form-input" type="text" placeholder="Company Name" value={form.company_name || ''} onChange={e => set('company_name', e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Contact Person</label>
+                <input className="form-input" type="text" placeholder="Contact Person" value={form.contact_person || ''} onChange={e => set('contact_person', e.target.value)} />
+              </div>
             </div>
             <div className="grid-2">
-              <Field label="Mobile" name="mobile" type="tel" />
-              <Field label="Email" name="email" type="email" />
+              <div className="form-group">
+                <label className="form-label">Mobile</label>
+                <input className="form-input" type="tel" placeholder="Mobile" value={form.mobile || ''} onChange={e => set('mobile', e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Email</label>
+                <input className="form-input" type="email" placeholder="Email" value={form.email || ''} onChange={e => set('email', e.target.value)} />
+              </div>
             </div>
-            <Field label="Designation" name="designation" />
-            <Field label="Address" name="address" />
+            <div className="form-group">
+              <label className="form-label">Designation</label>
+              <input className="form-input" type="text" placeholder="Designation" value={form.designation || ''} onChange={e => set('designation', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Address</label>
+              <input className="form-input" type="text" placeholder="Address" value={form.address || ''} onChange={e => set('address', e.target.value)} />
+            </div>
             <div className="grid-3">
-              <Field label="City" name="city" />
-              <Field label="State" name="state" />
-              <Field label="Country" name="country" />
+              <div className="form-group">
+                <label className="form-label">City</label>
+                <input className="form-input" type="text" placeholder="City" value={form.city || ''} onChange={e => set('city', e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">State</label>
+                <input className="form-input" type="text" placeholder="State" value={form.state || ''} onChange={e => set('state', e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Country</label>
+                <input className="form-input" type="text" placeholder="Country" value={form.country || ''} onChange={e => set('country', e.target.value)} />
+              </div>
             </div>
-            <Field label="Website" name="website" type="url" placeholder="https://" />
+            <div className="form-group">
+              <label className="form-label">Website</label>
+              <input className="form-input" type="text" placeholder="www.example.com" value={form.website || ''} onChange={e => set('website', e.target.value)} />
+            </div>
           </div>
         </div>
 
-        {/* Manual fields */}
         <div style={{ background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', padding: '14px' }}>
           <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Your Notes
@@ -71,11 +82,7 @@ export default function LeadForm({ initial = {}, exhibitionId, onSave, onCancel,
           <div className="stack">
             <div className="form-group">
               <label className="form-label">Type</label>
-              <select
-                className="form-select"
-                value={form.lead_type || ''}
-                onChange={e => set('lead_type', e.target.value)}
-              >
+              <select className="form-select" value={form.lead_type || ''} onChange={e => set('lead_type', e.target.value)}>
                 <option value="">Select type</option>
                 <option value="client">Client</option>
                 <option value="vendor">Vendor</option>
@@ -84,31 +91,17 @@ export default function LeadForm({ initial = {}, exhibitionId, onSave, onCancel,
             </div>
             <div className="form-group">
               <label className="form-label">Company Context</label>
-              <textarea
-                className="form-textarea"
-                placeholder="What does this company do? Why are they interesting?"
-                value={form.company_context || ''}
-                onChange={e => set('company_context', e.target.value)}
-                style={{ minHeight: 70 }}
-              />
+              <textarea className="form-textarea" placeholder="What does this company do? Why are they interesting?" value={form.company_context || ''} onChange={e => set('company_context', e.target.value)} style={{ minHeight: 70 }} />
             </div>
             <div className="form-group">
               <label className="form-label">Additional Notes</label>
-              <textarea
-                className="form-textarea"
-                placeholder="Anything else to remember about this conversation..."
-                value={form.notes || ''}
-                onChange={e => set('notes', e.target.value)}
-                style={{ minHeight: 70 }}
-              />
+              <textarea className="form-textarea" placeholder="Anything else to remember about this conversation..." value={form.notes || ''} onChange={e => set('notes', e.target.value)} style={{ minHeight: 70 }} />
             </div>
           </div>
         </div>
 
         <div className="flex-row" style={{ justifyContent: 'flex-end', gap: 10 }}>
-          <button type="button" className="btn btn-secondary" onClick={onCancel}>
-            Cancel
-          </button>
+          <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>
           <button type="submit" className="btn btn-primary" disabled={loading}>
             {loading ? <span className="loading-spin" /> : null}
             Save Contact
