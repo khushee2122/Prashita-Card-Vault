@@ -49,8 +49,8 @@ export async function getProfile(userId) {
 export async function uploadCardImage(orgId, file, side) {
   const ext = file.name.split('.').pop()
   const path = `${orgId}/${Date.now()}-${side}.${ext}`
-  const { error } = await supabase.storage.from('card-images').upload(path, file)
+  const { error } = await supabase.storage.from('Card-images').upload(path, file)
   if (error) throw error
-  const { data } = supabase.storage.from('card-images').getPublicUrl(path)
+  const { data } = supabase.storage.from('Card-images').getPublicUrl(path)
   return data.publicUrl
 }
