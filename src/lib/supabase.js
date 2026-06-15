@@ -3,18 +3,11 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase env variables. Copy .env.example to .env.local and fill in your credentials.')
-}
-
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   realtime: { params: { eventsPerSecond: 10 } }
 })
 
-// ── Auth helpers ──────────────────────────────────────────────
-
 export async function signUp({ email, password, fullName, orgName }) {
-  // 1. Create auth user
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
     password,
@@ -22,21 +15,12 @@ export async function signUp({ email, password, fullName, orgName }) {
   })
   if (authError) throw authError
 
-  const userId = authData.user.id
-
-  // 2. Create org
-  const { data: orgData, error: orgError } = await supabase
-    .from('orgs')
-    .insert({ name: orgName })
-    .select()
-    .single()
-  if (orgError) throw orgError
-
-  // 3. Create profile (admin)
-  const { error: profileError } = await supabase
-    .from('profiles')
-    .insert({ id: userId, org_id: orgData.id, full_name: fullName, role: 'admin' })
-  if (profileError) throw profileError
+  const { data, error } = await supabase.rpc('create_org_and_profile', {
+    org_name: orgName,
+    user_id: authData.user.id,
+    full_name: fullName
+  })
+  if (error) throw error
 
   return authData
 }
@@ -61,8 +45,6 @@ export async function getProfile(userId) {
   if (error) throw error
   return data
 }
-
-// ── Storage helpers ───────────────────────────────────────────
 
 export async function uploadCardImage(orgId, file, side) {
   const ext = file.name.split('.').pop()
