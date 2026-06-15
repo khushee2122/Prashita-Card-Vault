@@ -1,6 +1,29 @@
 import Tesseract from 'tesseract.js'
 
-// ── Image pre-processing for better OCR accuracy ──────────────
+// ── Indian states and major cities ────────────────────────────
+const INDIAN_STATES = [
+  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
+  'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
+  'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram',
+  'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu',
+  'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
+  'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Chandigarh', 'Puducherry'
+]
+
+const INDIAN_CITIES = [
+  'Mumbai', 'Delhi', 'Bangalore', 'Bengaluru', 'Hyderabad', 'Ahmedabad',
+  'Chennai', 'Kolkata', 'Surat', 'Pune', 'Jaipur', 'Lucknow', 'Kanpur',
+  'Nagpur', 'Indore', 'Thane', 'Bhopal', 'Visakhapatnam', 'Vadodara',
+  'Firozabad', 'Ludhiana', 'Patna', 'Agra', 'Nashik', 'Meerut', 'Faridabad',
+  'Rajkot', 'Kalyan', 'Vasai', 'Varanasi', 'Srinagar', 'Aurangabad',
+  'Dhanbad', 'Amritsar', 'Navi Mumbai', 'Allahabad', 'Prayagraj', 'Ranchi',
+  'Howrah', 'Coimbatore', 'Jabalpur', 'Gwalior', 'Vijayawada', 'Jodhpur',
+  'Madurai', 'Raipur', 'Kota', 'Malad', 'Borivali', 'Andheri', 'Bandra',
+  'Powai', 'Worli', 'Dadar', 'Kurla', 'Ghatkopar', 'Mulund', 'Vashi',
+  'Noida', 'Gurgaon', 'Gurugram', 'Ghaziabad', 'Dwarka', 'Rohini'
+]
+
+// ── Image pre-processing ──────────────────────────────────────
 export async function preprocessImage(imageFile) {
   return new Promise((resolve) => {
     const img = new Image()
@@ -10,26 +33,16 @@ export async function preprocessImage(imageFile) {
       canvas.width = img.width
       canvas.height = img.height
       const ctx = canvas.getContext('2d')
-
-      // Draw original
       ctx.drawImage(img, 0, 0)
-
-      // Get pixel data
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
       const data = imageData.data
-
       for (let i = 0; i < data.length; i += 4) {
-        // Convert to greyscale
         const avg = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
-        // Increase contrast
         const contrast = 1.5
         const factor = (259 * (contrast * 255 + 255)) / (255 * (259 - contrast * 255))
         const adjusted = Math.min(255, Math.max(0, factor * (avg - 128) + 128))
-        data[i] = adjusted
-        data[i + 1] = adjusted
-        data[i + 2] = adjusted
+        data[i] = adjusted; data[i + 1] = adjusted; data[i + 2] = adjusted
       }
-
       ctx.putImageData(imageData, 0, 0)
       canvas.toBlob(blob => {
         URL.revokeObjectURL(url)
@@ -40,7 +53,7 @@ export async function preprocessImage(imageFile) {
   })
 }
 
-// ── QR Code detection using native BarcodeDetector API ────────
+// ── QR detection ──────────────────────────────────────────────
 export async function detectQR(imageFile) {
   try {
     if (!('BarcodeDetector' in window)) return null
@@ -49,55 +62,42 @@ export async function detectQR(imageFile) {
     const barcodes = await detector.detect(img)
     if (barcodes.length === 0) return null
     return barcodes[0].rawValue
-  } catch {
-    return null
-  }
+  } catch { return null }
 }
 
-// ── Parse vCard format into fields ────────────────────────────
+// ── vCard parser ──────────────────────────────────────────────
 export function parseVCard(vcardText) {
   const fields = {}
   const lines = vcardText.split(/\r?\n/)
-
   for (const line of lines) {
     const [key, ...rest] = line.split(':')
     const value = rest.join(':').trim()
     if (!value) continue
-
     const k = key.toUpperCase().split(';')[0]
-
     if (k === 'FN') fields.contact_person = value
     if (k === 'ORG') fields.company_name = value.replace(/;/g, ' ').trim()
     if (k === 'TITLE') fields.designation = value
     if (k === 'URL') fields.website = value
     if (k === 'EMAIL' || k.startsWith('EMAIL')) fields.email = value
     if (k === 'NOTE') fields.notes = value
-
-    if (k === 'TEL' || k.startsWith('TEL')) {
-      if (!fields.mobile) fields.mobile = value
-    }
-
+    if (k === 'TEL' || k.startsWith('TEL')) { if (!fields.mobile) fields.mobile = value }
     if (k === 'ADR' || k.startsWith('ADR')) {
-      // vCard ADR: PO Box;Extended;Street;City;State;Postal;Country
       const parts = value.split(';')
       if (parts[2]) fields.address = parts[2].trim()
       if (parts[3]) fields.city = parts[3].trim()
       if (parts[4]) fields.state = parts[4].trim()
       if (parts[6]) fields.country = parts[6].trim()
     }
-
     if (k === 'N' && !fields.contact_person) {
-      // N: LastName;FirstName;Middle;Prefix;Suffix
       const parts = value.split(';')
       const name = [parts[1], parts[0]].filter(Boolean).join(' ').trim()
       if (name) fields.contact_person = name
     }
   }
-
   return fields
 }
 
-// ── Run OCR with image preprocessing ─────────────────────────
+// ── OCR ───────────────────────────────────────────────────────
 export async function runOCR(imageFile, onProgress) {
   const processed = await preprocessImage(imageFile)
   const result = await Tesseract.recognize(processed, 'eng', {
@@ -105,27 +105,21 @@ export async function runOCR(imageFile, onProgress) {
       if (m.status === 'recognizing text' && onProgress) {
         onProgress(Math.round(m.progress * 100))
       }
-    },
-    tessedit_pageseg_mode: '6', // Assume uniform block of text
+    }
   })
   return result.data.text
 }
 
-// ── Main scan function — runs QR + OCR together ───────────────
+// ── Main scan function ────────────────────────────────────────
 export async function scanCard(frontFile, backFile, onProgress) {
   let qrData = null
   let combinedText = ''
 
-  // Run QR detection on front first
   qrData = await detectQR(frontFile)
-  if (!qrData && backFile) {
-    qrData = await detectQR(backFile)
-  }
+  if (!qrData && backFile) qrData = await detectQR(backFile)
 
-  // If QR is a vCard, parse it directly
   if (qrData && qrData.toUpperCase().startsWith('BEGIN:VCARD')) {
     const vcardFields = parseVCard(qrData)
-    // Still run OCR to fill any missing fields
     const ocrText = await runOCR(frontFile, p => onProgress(Math.round(p * 0.8)))
     if (backFile) {
       const backText = await runOCR(backFile, p => onProgress(80 + Math.round(p * 0.2)))
@@ -134,11 +128,9 @@ export async function scanCard(frontFile, backFile, onProgress) {
       combinedText = ocrText
     }
     const ocrFields = parseCardText(combinedText)
-    // vCard data wins over OCR where both have values
     return { ...ocrFields, ...vcardFields }
   }
 
-  // If QR is a URL, put it in website field and use OCR for rest
   if (qrData && (qrData.startsWith('http') || qrData.startsWith('www'))) {
     const ocrText = await runOCR(frontFile, p => onProgress(Math.round(p * 0.8)))
     if (backFile) {
@@ -151,7 +143,6 @@ export async function scanCard(frontFile, backFile, onProgress) {
     return { ...ocrFields, website: qrData }
   }
 
-  // No QR — pure OCR
   const frontText = await runOCR(frontFile, p => onProgress(Math.round(p * 0.6)))
   combinedText = frontText
   if (backFile) {
@@ -162,27 +153,15 @@ export async function scanCard(frontFile, backFile, onProgress) {
   return parseCardText(combinedText)
 }
 
-// ── Parse raw OCR text into structured fields ─────────────────
+// ── Parse OCR text into fields ────────────────────────────────
 export function parseCardText(rawText) {
-  const lines = rawText
-    .split('\n')
-    .map(l => l.trim())
-    .filter(l => l.length > 1)
+  const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 1)
+  const fullText = rawText
 
   const fields = {
-    company_name: '',
-    contact_person: '',
-    mobile: '',
-    email: '',
-    address: '',
-    designation: '',
-    city: '',
-    state: '',
-    country: '',
-    website: ''
+    company_name: '', contact_person: '', mobile: '', email: '',
+    address: '', designation: '', city: '', state: '', country: '', website: ''
   }
-
-  const fullText = rawText
 
   // Email
   const emailMatch = fullText.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/i)
@@ -191,9 +170,8 @@ export function parseCardText(rawText) {
   // Phone
   const phonePatterns = [
     /(\+91[\s\-]?[6-9]\d{9})/,
-    /(\+?1?[\s\-]?\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{4})/,
     /([6-9]\d{9})/,
-    /(\d{4}[\s\-]\d{3}[\s\-]\d{3})/,
+    /(\+?1?[\s\-]?\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{4})/,
     /(\+[\d\s\-().]{10,18})/,
     /(1800[\s\-]?\d{3}[\s\-]?\d{4})/,
   ]
@@ -201,10 +179,7 @@ export function parseCardText(rawText) {
     const match = fullText.match(pattern)
     if (match) {
       const cleaned = match[0].trim()
-      if (cleaned.replace(/\D/g, '').length >= 7) {
-        fields.mobile = cleaned
-        break
-      }
+      if (cleaned.replace(/\D/g, '').length >= 7) { fields.mobile = cleaned; break }
     }
   }
 
@@ -212,7 +187,38 @@ export function parseCardText(rawText) {
   const webMatch = fullText.match(/(?:https?:\/\/|www\.)[^\s,\n]+/i)
   if (webMatch) fields.website = webMatch[0].replace(/[,.]$/, '').trim()
 
-  // Designation
+  // PIN code — extract and use to find city/state
+  const pinMatch = fullText.match(/\b([1-9][0-9]{5})\b/)
+  const pinCode = pinMatch ? pinMatch[1] : null
+
+  // State detection
+  for (const state of INDIAN_STATES) {
+    if (fullText.toLowerCase().includes(state.toLowerCase())) {
+      fields.state = state
+      break
+    }
+  }
+
+  // City detection
+  for (const city of INDIAN_CITIES) {
+    if (fullText.toLowerCase().includes(city.toLowerCase())) {
+      fields.city = city
+      break
+    }
+  }
+
+  // Country
+  const countries = ['India', 'USA', 'United States', 'UK', 'United Kingdom', 'Germany', 'China', 'Japan', 'UAE', 'Singapore', 'Australia', 'Canada']
+  for (const country of countries) {
+    if (fullText.toLowerCase().includes(country.toLowerCase())) {
+      fields.country = country
+      break
+    }
+  }
+  // Default to India if PIN code found and no country detected
+  if (!fields.country && pinCode) fields.country = 'India'
+
+  // Designation keywords
   const designationKeywords = [
     'CEO', 'CTO', 'CFO', 'COO', 'CMO', 'Director', 'Manager', 'Engineer',
     'President', 'VP', 'Vice President', 'Head', 'Lead', 'Senior', 'Junior',
@@ -229,15 +235,6 @@ export function parseCardText(rawText) {
     }
   }
 
-  // Country
-  const countries = ['India', 'USA', 'United States', 'UK', 'United Kingdom', 'Germany', 'China', 'Japan', 'UAE', 'Singapore', 'Australia', 'Canada']
-  for (const country of countries) {
-    if (fullText.toLowerCase().includes(country.toLowerCase())) {
-      fields.country = country
-      break
-    }
-  }
-
   function cleanLine(line) {
     return line
       .replace(/^[\|\[\{\(\~\!\=\#\*\^\-\_\+\<\>\\\/@\s]+/, '')
@@ -250,18 +247,14 @@ export function parseCardText(rawText) {
   for (const line of lines) {
     const clean = cleanLine(line)
     if (
-      clean.length < 3 || clean.length > 40 ||
-      skipForName.has(line) || clean.match(/\d/) ||
-      clean.match(/@/) || clean.match(/www\./i) ||
+      clean.length < 3 || clean.length > 40 || skipForName.has(line) ||
+      clean.match(/\d/) || clean.match(/@/) || clean.match(/www\./i) ||
       designationKeywords.some(k => clean.toLowerCase().includes(k.toLowerCase()))
     ) continue
     const words = clean.split(/\s+/)
     if (words.length >= 2 && words.length <= 4) {
       const looksLikeName = words.every(w => w.length > 0 && (w[0] === w[0].toUpperCase() || w.length <= 3))
-      if (looksLikeName && !fields.contact_person) {
-        fields.contact_person = clean
-        break
-      }
+      if (looksLikeName && !fields.contact_person) { fields.contact_person = clean; break }
     }
   }
 
@@ -270,26 +263,43 @@ export function parseCardText(rawText) {
   for (const line of lines) {
     const clean = cleanLine(line)
     if (
-      clean.length < 2 || clean.length > 60 ||
-      skipForCompany.has(line) || clean === fields.contact_person ||
-      clean.match(/@/) || clean.match(/www\./i) ||
+      clean.length < 2 || clean.length > 60 || skipForCompany.has(line) ||
+      clean === fields.contact_person || clean.match(/@/) || clean.match(/www\./i) ||
       clean.replace(/\D/g, '').length > 4
     ) continue
     if (!fields.company_name) { fields.company_name = clean; break }
   }
 
-  // Address
-  const usedLines = new Set([fields.contact_person, fields.company_name, fields.designation, fields.email, fields.website])
-  const addressCandidates = lines.filter(l => {
+  // Address — find lines that look like address, exclude already-parsed fields
+  const usedValues = new Set([
+    fields.contact_person, fields.company_name, fields.designation,
+    fields.email, fields.website, fields.city, fields.state, fields.country
+  ])
+
+  const addressLines = lines.filter(l => {
     const clean = cleanLine(l)
     return (
-      clean.length > 4 && !usedLines.has(clean) && !usedLines.has(l) &&
-      clean !== fields.contact_person && clean !== fields.company_name &&
-      !clean.match(/@/) && !clean.match(/www\./i) &&
-      !clean.match(/^\+?\d[\d\s\-()]{5,}$/)
+      clean.length > 5 &&
+      !usedValues.has(clean) &&
+      clean !== fields.contact_person &&
+      clean !== fields.company_name &&
+      !clean.match(/@/) &&
+      !clean.match(/www\./i) &&
+      !clean.match(/^\+?\d[\d\s\-()]{5,}$/) && // not a phone
+      !designationKeywords.some(k => clean.toLowerCase().includes(k.toLowerCase()))
     )
   })
-  if (addressCandidates.length > 0) fields.address = cleanLine(addressCandidates[0])
+
+  // Pick the best address line — prefer ones with street/plot/no/flat keywords
+  const addressKeywords = ['plot', 'flat', 'no.', 'no ', 'road', 'street', 'nagar', 'colony', 'sector', 'lane', 'marg', 'building', 'floor', 'unit', 'shop', 'office', 'complex', 'industrial']
+  const preferredAddress = addressLines.find(l =>
+    addressKeywords.some(k => l.toLowerCase().includes(k))
+  )
+  if (preferredAddress) {
+    fields.address = cleanLine(preferredAddress)
+  } else if (addressLines.length > 0) {
+    fields.address = cleanLine(addressLines[0])
+  }
 
   return fields
 }
