@@ -4,7 +4,7 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase env variables. Copy .env.example to .env.local and fill in your credentials.')
+  throw new Error('Missing Supabase env variables.')
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -12,17 +12,19 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 })
 
 export async function signUp({ email, password, fullName, orgName }) {
-  // 1. Check if this email has a pending invite
+  const cleanEmail = email.toLowerCase().trim()
+
+  // 1. Check for pending invite — use maybeSingle() to avoid error when no row found
   const { data: invite } = await supabase
     .from('invites')
     .select('org_id')
-    .eq('email', email.toLowerCase().trim())
+    .eq('email', cleanEmail)
     .eq('accepted', false)
-    .single()
+    .maybeSingle()
 
   // 2. Create auth user
   const { data: authData, error: authError } = await supabase.auth.signUp({
-    email,
+    email: cleanEmail,
     password,
     options: { data: { full_name: fullName } }
   })
@@ -30,22 +32,22 @@ export async function signUp({ email, password, fullName, orgName }) {
 
   const userId = authData.user.id
 
-  if (invite) {
+  if (invite?.org_id) {
     // 3a. Invite found — join existing org as member
-    const { error: profileError } = await supabase.rpc('create_org_and_profile', {
+    const { error } = await supabase.rpc('create_org_and_profile', {
       org_name: null,
       user_id: userId,
       full_name: fullName,
       existing_org_id: invite.org_id,
       user_role: 'member'
     })
-    if (profileError) throw profileError
+    if (error) throw error
 
     // Mark invite as accepted
     await supabase
       .from('invites')
       .update({ accepted: true })
-      .eq('email', email.toLowerCase().trim())
+      .eq('email', cleanEmail)
 
   } else {
     // 3b. No invite — create new org as admin
