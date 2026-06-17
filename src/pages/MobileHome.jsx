@@ -83,7 +83,8 @@ export default function MobileHome() {
   async function handleUpdate(formData) {
     setSaving(true)
     try {
-      await updateLead(editLead.id, formData)
+      const { exhibitions, profiles, ...cleanData } = formData
+      await updateLead(editLead.id, cleanData)
       toast('Contact updated!', 'success')
       setModal(null)
       setEditLead(null)
