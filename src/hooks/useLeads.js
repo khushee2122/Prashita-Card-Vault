@@ -171,7 +171,7 @@ export function useTeam() {
   async function inviteMember(email) {
     const { error } = await supabase
       .from('invites')
-      .insert({ org_id: profile.org_id, email, invited_by: profile.id })
+      .insert({ org_id: profile.org_id, email: email.toLowerCase().trim(), invited_by: profile.id })
     if (error) throw error
     await fetchTeam()
   }
