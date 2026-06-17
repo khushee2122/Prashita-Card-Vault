@@ -16,7 +16,7 @@ export function useLeads(exhibitionId = null) {
         .from('leads')
         .select(`
           *,
-          exhibitions(name),
+          exhibitions!leads_exhibition_id_fkey(name),
           profiles(full_name)
         `)
         .eq('org_id', profile.org_id)
