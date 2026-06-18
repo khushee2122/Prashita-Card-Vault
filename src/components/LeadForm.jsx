@@ -6,8 +6,14 @@ const EMPTY = {
   website: '', company_context: '', lead_type: '', notes: ''
 }
 
+function pickEditableFields(data) {
+  return Object.fromEntries(
+    Object.keys(EMPTY).map(key => [key, data?.[key] ?? EMPTY[key]])
+  )
+}
+
 export default function LeadForm({ initial = {}, exhibitionId, onSave, onCancel, loading }) {
-  const [form, setForm] = useState({ ...EMPTY, ...initial })
+  const [form, setForm] = useState(() => pickEditableFields(initial))
 
   function set(key, val) {
     setForm(f => ({ ...f, [key]: val }))

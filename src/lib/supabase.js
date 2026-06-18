@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+const CARD_IMAGES_BUCKETS = ['card-images', 'Card-images']
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase env variables.')
@@ -88,8 +89,27 @@ export async function getProfile(userId) {
 export async function uploadCardImage(orgId, file, side) {
   const ext = file.name.split('.').pop()
   const path = `${orgId}/${Date.now()}-${side}.${ext}`
-  const { error } = await supabase.storage.from('Card-images').upload(path, file)
-  if (error) throw error
-  const { data } = supabase.storage.from('Card-images').getPublicUrl(path)
-  return data.publicUrl
+  try {
+    let lastError = null
+
+    for (const bucket of CARD_IMAGES_BUCKETS) {
+      const { error } = await supabase.storage
+        .from(bucket)
+        .upload(path, file, { contentType: file.type || 'image/jpeg' })
+
+      if (!error) {
+        const { data } = supabase.storage.from(bucket).getPublicUrl(path)
+        return data.publicUrl
+      }
+
+      lastError = error
+      if (!/bucket/i.test(error.message || '')) throw error
+    }
+
+    throw lastError
+  } catch (error) {
+    throw new Error(error?.message === 'Load failed'
+      ? 'Could not upload the card photo. Please check your connection and try again.'
+      : error?.message || 'Could not upload the card photo.')
+  }
 }

@@ -2,6 +2,31 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
 
+const LEAD_COLUMNS = new Set([
+  'exhibition_id',
+  'company_name',
+  'contact_person',
+  'mobile',
+  'email',
+  'address',
+  'designation',
+  'city',
+  'state',
+  'country',
+  'website',
+  'company_context',
+  'lead_type',
+  'notes',
+  'card_front_url',
+  'card_back_url'
+])
+
+function cleanLeadPayload(payload) {
+  return Object.fromEntries(
+    Object.entries(payload || {}).filter(([key]) => LEAD_COLUMNS.has(key))
+  )
+}
+
 export function useLeads(exhibitionId = null) {
   const { profile } = useAuth()
   const [leads, setLeads] = useState([])
@@ -61,7 +86,7 @@ export function useLeads(exhibitionId = null) {
     const { data, error: err } = await supabase
       .from('leads')
       .insert({
-        ...leadData,
+        ...cleanLeadPayload(leadData),
         org_id: profile.org_id,
         scanned_by: profile.id
       })
@@ -74,7 +99,7 @@ export function useLeads(exhibitionId = null) {
   async function updateLead(id, updates) {
     const { data, error: err } = await supabase
       .from('leads')
-      .update(updates)
+      .update(cleanLeadPayload(updates))
       .eq('id', id)
       .eq('org_id', profile.org_id)
       .select()
