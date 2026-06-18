@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { MapPin, Calendar, Plus, ChevronRight } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { MapPin, Calendar, Plus, ChevronRight, WifiOff } from 'lucide-react'
 import { useExhibitions } from '../hooks/useLeads'
+import { cacheExhibitions, getCachedExhibitions } from '../lib/offlineQueue'
 
 export default function ExhibitionPicker({ onSelect }) {
   const { exhibitions, loading, createExhibition } = useExhibitions()
@@ -8,9 +9,40 @@ export default function ExhibitionPicker({ onSelect }) {
   const [form, setForm] = useState({ name: '', location: '', start_date: '', end_date: '' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const [online, setOnline] = useState(navigator.onLine)
+  const [cachedExhibitions, setCachedExhibitions] = useState([])
 
-  const active = exhibitions.filter(e => e.status === 'active')
-  const archived = exhibitions.filter(e => e.status === 'archived')
+  useEffect(() => {
+    function handleOnline() { setOnline(true) }
+    function handleOffline() { setOnline(false) }
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
+
+  // Load cached exhibitions for offline use
+  useEffect(() => {
+    getCachedExhibitions().then(setCachedExhibitions)
+  }, [])
+
+  // Cache exhibitions whenever we get fresh data from Supabase
+  useEffect(() => {
+    if (exhibitions.length > 0) {
+      cacheExhibitions(exhibitions)
+      setCachedExhibitions(exhibitions)
+    }
+  }, [exhibitions])
+
+  // Use online data if available, fall back to cache
+  const displayExhibitions = online && exhibitions.length > 0
+    ? exhibitions
+    : cachedExhibitions
+
+  const active   = displayExhibitions.filter(e => e.status === 'active')
+  const archived = displayExhibitions.filter(e => e.status === 'archived')
 
   async function handleCreate(e) {
     e.preventDefault()
@@ -33,7 +65,6 @@ export default function ExhibitionPicker({ onSelect }) {
       padding: 24, zIndex: 500
     }}>
       <div style={{ width: '100%', maxWidth: 480 }}>
-        {/* Logo / header */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{
             width: 52, height: 52, background: 'var(--accent)',
@@ -47,10 +78,19 @@ export default function ExhibitionPicker({ onSelect }) {
           <p style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 4 }}>
             All cards you scan will be tagged to this exhibition
           </p>
+          {!online && (
+            <div style={{
+              marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: 'var(--danger-soft)', color: 'var(--danger)',
+              padding: '4px 12px', borderRadius: 'var(--radius-full)',
+              fontSize: 12, fontWeight: 600
+            }}>
+              <WifiOff size={12} /> Offline — showing cached exhibitions
+            </div>
+          )}
         </div>
 
-        {/* Active exhibitions */}
-        {loading ? (
+        {loading && online ? (
           <div style={{ textAlign: 'center', padding: 32 }}>
             <span className="loading-spin" />
           </div>
@@ -70,8 +110,7 @@ export default function ExhibitionPicker({ onSelect }) {
                         width: '100%', padding: '14px 16px',
                         display: 'flex', alignItems: 'center', gap: 12,
                         cursor: 'pointer', textAlign: 'left',
-                        border: '1.5px solid var(--border)',
-                        transition: 'all 0.15s'
+                        border: '1.5px solid var(--border)', transition: 'all 0.15s'
                       }}
                       onClick={() => onSelect(exh)}
                       onMouseOver={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.background = 'var(--accent-soft)' }}
@@ -115,8 +154,16 @@ export default function ExhibitionPicker({ onSelect }) {
               </div>
             )}
 
-            {/* Create new */}
-            {!creating ? (
+            {displayExhibitions.length === 0 && !loading && (
+              <div className="empty-state">
+                <Calendar size={36} />
+                <p>{online ? 'No exhibitions yet' : 'No cached exhibitions'}</p>
+                <span>{online ? 'Create one below' : 'Connect to internet to load exhibitions'}</span>
+              </div>
+            )}
+
+            {/* Create new — only when online */}
+            {online && !creating && (
               <button
                 className="btn btn-secondary btn-block"
                 style={{ marginTop: 8, padding: '12px 16px', justifyContent: 'center', gap: 8 }}
@@ -124,7 +171,9 @@ export default function ExhibitionPicker({ onSelect }) {
               >
                 <Plus size={16} /> Create New Exhibition
               </button>
-            ) : (
+            )}
+
+            {online && creating && (
               <form onSubmit={handleCreate} className="card card-pad stack" style={{ gap: 14 }}>
                 <p style={{ fontWeight: 600, fontSize: 15 }}>New Exhibition</p>
                 {error && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</p>}
